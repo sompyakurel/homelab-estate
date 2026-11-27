@@ -4,11 +4,8 @@
 # NOTE: the front-door lock's Home Assistant device ID has been
 # replaced with the placeholder YOUR_LOCK_DEVICE_ID (it is an
 # HA-internal UUID, not a credential, but it identifies your lock).
-# The home WiFi network names have likewise been replaced with
-# YOUR_HOME_SSID / YOUR_HOME_SSID_EXT. Find your lock's ID in HA:
-# Settings -> Devices & services -> Devices -> your lock -> the ID
-# is in the page URL. Substitute both above.
-
+# Find yours in HA: Settings -> Devices & services -> Devices ->
+# your lock -> the ID is in the page URL. Substitute it above.
 
 - id: driveway_early_warning
   alias: Driveway early warning
@@ -428,6 +425,17 @@
       != ''package_present'' and (states.lock.front_door.last_changed is none or (now()
       - states.lock.front_door.last_changed).total_seconds() > 180) and trigger.payload_json.after.entered_zones[0]
       != ''doorstep'' }}'
+  - condition: time
+    after: 07:00:00
+    before: '22:00:00'
+    weekday:
+    - sun
+    - mon
+    - tue
+    - wed
+    - thu
+    - fri
+    - sat
   actions:
   - action: notify.alexa_media
     data:
