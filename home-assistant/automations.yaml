@@ -4,8 +4,10 @@
 # NOTE: the front-door lock's Home Assistant device ID has been
 # replaced with the placeholder YOUR_LOCK_DEVICE_ID (it is an
 # HA-internal UUID, not a credential, but it identifies your lock).
-# Find yours in HA: Settings -> Devices & services -> Devices ->
-# your lock -> the ID is in the page URL. Substitute it above.
+# The home WiFi network names have likewise been replaced with
+# YOUR_HOME_SSID / YOUR_HOME_SSID_EXT. Find your lock's ID in HA:
+# Settings -> Devices & services -> Devices -> your lock -> the ID
+# is in the page URL. Substitute both above.
 
 
 - id: driveway_early_warning
@@ -136,8 +138,8 @@
   - condition: template
     value_template: '{{ trigger.entity_id == ''device_tracker.iphone'' or (trigger.entity_id
       == ''sensor.iphone_ssid'' and trigger.from_state is not none and trigger.from_state.state
-      in [''ThePyaks'', ''ThePyaks_EXT''] and trigger.to_state is not none and trigger.to_state.state
-      not in [''ThePyaks'', ''ThePyaks_EXT'']) }}
+      in [''YOUR_HOME_SSID'', ''YOUR_HOME_SSID_EXT''] and trigger.to_state is not none and trigger.to_state.state
+      not in [''YOUR_HOME_SSID'', ''YOUR_HOME_SSID_EXT'']) }}
 
       '
   actions:

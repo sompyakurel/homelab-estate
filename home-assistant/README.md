@@ -11,11 +11,14 @@ Runs on CT 106 (192.168.1.26:8123), HA 2026.11.2.
   MQTT topics, and device names only. The front-door lock's HA device
   ID is the placeholder `YOUR_LOCK_DEVICE_ID` (an HA-internal UUID,
   not a credential — swapped out so the repo doesn't identify the
-  lock); substitute your own lock's ID to use the file as-is.
+  lock); substitute your own lock's ID to use the file as-is. The
+  home WiFi network names are likewise the placeholders
+  `YOUR_HOME_SSID` / `YOUR_HOME_SSID_EXT`.
 - `fetch_ha_automations.py` — the fetcher. Reads the HA long-lived
   token from `~/.ha-token` and talks through the tunnel proxy. Set
   `LOCK_DEVICE_ID` in the environment to re-apply the device-ID
-  placeholder on refresh.
+  placeholder on refresh, and `HOME_SSID` to re-apply the WiFi
+  placeholders.
 - `configuration.yaml` — the live file from
   `/opt/homeassistant/config/configuration.yaml` on CT 106. It's the
   stock boilerplate (default_config, frontend themes, includes for

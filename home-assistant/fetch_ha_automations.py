@@ -76,4 +76,14 @@ if lock_id:
     text = text.replace(lock_id, "YOUR_LOCK_DEVICE_ID")
     open(out_path, "w").write(text)
     print("lock device ID replaced with placeholder")
+
+# Re-apply the home WiFi SSID placeholders if HOME_SSID is set
+# (the _EXT network is the same base name with _EXT appended).
+home_ssid = os.environ.get("HOME_SSID", "")
+if home_ssid:
+    text = open(out_path).read()
+    text = text.replace(home_ssid + "_EXT", "YOUR_HOME_SSID_EXT")
+    text = text.replace(home_ssid, "YOUR_HOME_SSID")
+    open(out_path, "w").write(text)
+    print("home WiFi SSIDs replaced with placeholders")
 print(f"\nwrote {len(configs)} automations to {out_path}")
