@@ -1,0 +1,538 @@
+# Home Assistant automations — fetched live from CT 106
+# via the REST API (config ids from state attributes).
+# Generated 2026-11-26; re-run fetch_ha_automations.py to refresh.
+# NOTE: the front-door lock's Home Assistant device ID has been
+# replaced with the placeholder YOUR_LOCK_DEVICE_ID (it is an
+# HA-internal UUID, not a credential, but it identifies your lock).
+# Find yours in HA: Settings -> Devices & services -> Devices ->
+# your lock -> the ID is in the page URL. Substitute it above.
+
+
+- id: driveway_early_warning
+  alias: Driveway early warning
+  description: Early heads-up when a person or car enters the driveway zone on the
+    garage camera. Uses Frigate zone occupancy sensors (zone-only, reliable).
+  triggers:
+  - platform: state
+    entity_id: binary_sensor.driveway_car_occupancy
+    from: 'off'
+    to: 'on'
+  - platform: state
+    entity_id: binary_sensor.driveway_person_occupancy
+    from: 'off'
+    to: 'on'
+  actions:
+  - target:
+      entity_id: camera.garage
+    data:
+      filename: /config/www/garage_driveway.jpg
+    action: camera.snapshot
+  - data:
+      title: Driveway alert
+      message: '{% if trigger.entity_id == ''binary_sensor.driveway_car_occupancy''
+        %}Car in driveway{% else %}Person in driveway{% endif %}'
+      data:
+        image: /local/garage_driveway.jpg
+    action: notify.mobile_app_iphone
+  - data:
+      message: '{% if trigger.entity_id == ''binary_sensor.driveway_car_occupancy''
+        %}A car just pulled into the driveway.{% else %}Someone is in the driveway.{%
+        endif %}'
+      target: media_player.bedroom_echo_dot
+      data:
+        type: announce
+    action: notify.alexa_media
+  mode: single
+- id: '1795586762824'
+  alias: Estate failure alert
+  description: ''
+  triggers:
+  - trigger: template
+    value_template: '{{ state_attr(''sensor.estate_briefing'', ''fails'') | length
+      > 0 }}
+
+      '
+  conditions: []
+  actions:
+  - action: notify.alexa_media
+    data:
+      message: 'Attention. Failing now: {{ state_attr(''sensor.estate_briefing'',
+        ''fails'') | join('', '') }}.'
+      target: media_player.bedroom_echo_dot
+      data:
+        type: announce
+  mode: single
+- id: '1795471474533'
+  alias: Garage motion announcement
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - binary_sensor.garage_garage_cam_motion
+    from:
+    - 'on'
+  conditions: []
+  actions:
+  - action: notify.notify
+    metadata: {}
+    data:
+      message: -Motion at the garage
+      target: media_player.bedroom_echo_dot
+      data:
+        type: announce
+  mode: single
+- id: goodnight_check
+  alias: Goodnight check
+  description: At 22:00 the bedroom Dot says whether the front door is locked and
+    whether the porch camera is on.
+  triggers:
+  - at: '22:00:00'
+    trigger: time
+  actions:
+  - action: notify.alexa_media
+    data:
+      data:
+        type: announce
+      message: Good night. {% if is_state('lock.front_door', 'locked') %}The front
+        door is locked.{% else %}The front door is unlocked.{% endif %} {% if states('camera.porch')
+        not in ['unavailable', 'unknown'] %}The porch camera is on.{% else %}The porch
+        camera is off.{% endif %}
+      target: media_player.bedroom_echo_dot
+  mode: single
+- id: leaving_home_lock_action
+  alias: Leaving-home lock action
+  description: Tapping Lock now on the leaving-home warning locks the front door and
+    confirms on the phone.
+  triggers:
+  - event_data:
+      action: LOCK_DOOR
+    event_type: mobile_app_notification_action
+    trigger: event
+  actions:
+  - action: lock.lock
+    data: {}
+    target:
+      entity_id: lock.front_door
+  - action: notify.mobile_app_iphone
+    data:
+      message: Front door locked.
+  mode: single
+- id: leaving_home_warning
+  alias: Leaving-home warning
+  description: When Som's phone leaves home while the front door is unlocked, send
+    a phone note with a Lock now button.
+  triggers:
+  - trigger: state
+    entity_id: device_tracker.iphone
+    from: home
+    to: not_home
+  - trigger: state
+    entity_id: sensor.iphone_ssid
+    for: 00:02:00
+  conditions:
+  - condition: state
+    entity_id: lock.front_door
+    state: unlocked
+  - condition: template
+    value_template: '{{ trigger.entity_id == ''device_tracker.iphone'' or (trigger.entity_id
+      == ''sensor.iphone_ssid'' and trigger.from_state is not none and trigger.from_state.state
+      in [''ThePyaks'', ''ThePyaks_EXT''] and trigger.to_state is not none and trigger.to_state.state
+      not in [''ThePyaks'', ''ThePyaks_EXT'']) }}
+
+      '
+  actions:
+  - action: notify.mobile_app_iphone
+    data:
+      data:
+        actions:
+        - action: LOCK_DOOR
+          title: Lock now
+      message: You're away and the front door is still unlocked.
+  mode: single
+- id: morning_briefing
+  alias: Morning briefing
+  description: Speaks the daily spoken morning briefing on the Echo Show 11 at 09:30,
+    in parts (Alexa drops announcements over 1024 chars). A short delay between parts
+    keeps them in order. Moved from the bedroom Echo Dot 2026-11-26 because the Dot
+    moves to the porch.
+  triggers:
+  - at: 09:30:00
+    trigger: time
+  actions:
+  - action: notify.alexa_media
+    data:
+      data:
+        type: announce
+      message: '{{ state_attr(''sensor.morning_briefing'', ''text'') }}'
+      target: media_player.som_s_echo_show_11
+  - if:
+    - condition: template
+      value_template: '{{ state_attr(''sensor.morning_briefing'', ''text2'') | default('''',
+        true) | length > 0 }}'
+    then:
+    - delay: '{{ state_attr(''sensor.morning_briefing'', ''delay1'') | int(45) }}'
+    - action: notify.alexa_media
+      data:
+        data:
+          type: announce
+        message: '{{ state_attr(''sensor.morning_briefing'', ''text2'') }}'
+        target: media_player.som_s_echo_show_11
+  - if:
+    - condition: template
+      value_template: '{{ state_attr(''sensor.morning_briefing'', ''text3'') | default('''',
+        true) | length > 0 }}'
+    then:
+    - delay: '{{ state_attr(''sensor.morning_briefing'', ''delay2'') | int(45) }}'
+    - action: notify.alexa_media
+      data:
+        data:
+          type: announce
+        message: '{{ state_attr(''sensor.morning_briefing'', ''text3'') }}'
+        target: media_player.som_s_echo_show_11
+  mode: single
+- id: '1795585231862'
+  alias: Morning estate briefing
+  description: ''
+  triggers:
+  - trigger: time
+    at: 09:15:00
+    weekday:
+    - mon
+    - tue
+    - wed
+    - thu
+    - fri
+  conditions: []
+  actions:
+  - action: notify.alexa_media
+    data:
+      message: '{{ state_attr(''sensor.estate_briefing'', ''text'') }}'
+      target: media_player.bedroom_echo_dot
+      data:
+        type: announce
+  mode: single
+- id: '1795458074344'
+  alias: New automation
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - binary_sensor.porch_person_detection
+    to:
+    - 'on'
+  conditions: []
+  actions:
+  - action: lock.unlock
+    metadata: {}
+    target:
+      device_id: YOUR_LOCK_DEVICE_ID
+    data: {}
+  mode: single
+- id: porch_digest
+  alias: Porch daily digest
+  description: At 23:00 the bedroom Dot reads today's porch tallies — named visitors
+    (not Som), strangers, deliveries — sends the same summary to Som's phone, saves
+    it to porch/digest/last, then resets them to zero.
+  triggers:
+  - at: '23:00:00'
+    trigger: time
+  actions:
+  - action: notify.alexa_media
+    data:
+      data:
+        type: announce
+      message: '{% set v = states(''sensor.porch_digest_visitors'') | int(0) %}{%
+        set s = states(''sensor.porch_digest_strangers'') | int(0) %}{% set d = states(''sensor.porch_digest_deliveries'')
+        | int(0) %}{% if v == 0 and s == 0 and d == 0 %}Nothing to report from the
+        porch today.{% else %}Porch digest. {{ v }} visitor{{ ''s'' if v != 1 else
+        '''' }}, {{ s }} stranger{{ ''s'' if s != 1 else '''' }}, and {{ d }} {{ ''delivery''
+        if d == 1 else ''deliveries'' }}.{% endif %}'
+      target: media_player.bedroom_echo_dot
+  - action: notify.mobile_app_iphone
+    data:
+      title: Porch digest
+      message: '{% set v = states(''sensor.porch_digest_visitors'') | int(0) %}{%
+        set s = states(''sensor.porch_digest_strangers'') | int(0) %}{% set d = states(''sensor.porch_digest_deliveries'')
+        | int(0) %}{% if v == 0 and s == 0 and d == 0 %}Nothing to report from the
+        porch today.{% else %}{{ v }} visitor{{ ''s'' if v != 1 else '''' }}, {{ s
+        }} stranger{{ ''s'' if s != 1 else '''' }}, {{ d }} {{ ''delivery'' if d ==
+        1 else ''deliveries'' }}.{% endif %}'
+  - action: mqtt.publish
+    data:
+      payload: '{% set v = states(''sensor.porch_digest_visitors'') | int(0) %}{%
+        set s = states(''sensor.porch_digest_strangers'') | int(0) %}{% set d = states(''sensor.porch_digest_deliveries'')
+        | int(0) %}{% if v == 0 and s == 0 and d == 0 %}Nothing to report from the
+        porch today.{% else %}Porch digest. {{ v }} visitor{{ ''s'' if v != 1 else
+        '''' }}, {{ s }} stranger{{ ''s'' if s != 1 else '''' }}, and {{ d }} {{ ''delivery''
+        if d == 1 else ''deliveries'' }}.{% endif %}'
+      retain: true
+      topic: porch/digest/last
+  - action: mqtt.publish
+    data:
+      payload: '0'
+      retain: true
+      topic: porch/digest/visitors
+  - action: mqtt.publish
+    data:
+      payload: '0'
+      retain: true
+      topic: porch/digest/strangers
+  - action: mqtt.publish
+    data:
+      payload: '0'
+      retain: true
+      topic: porch/digest/deliveries
+  mode: single
+- id: '1795479858335'
+  alias: Porch greeting
+  description: ''
+  triggers:
+  - trigger: mqtt
+    options:
+      topic: frigate/tracked_object_update
+  conditions:
+  - condition: template
+    value_template: '{{ trigger.payload_json.type == ''face'' and trigger.payload_json.camera
+      == ''porch'' and trigger.payload_json.name in [''Som'', ''Mom'', ''Sami''] and
+      trigger.payload_json.score > 0.7 }}
+
+      '
+  - condition: time
+    after: 07:00:00
+    before: '22:00:00'
+    weekday:
+    - sun
+    - mon
+    - tue
+    - wed
+    - thu
+    - fri
+    - sat
+  actions:
+  - action: notify.alexa_media
+    data:
+      message: Namaste, welcome home, {{ trigger.payload_json.name }}
+      target: media_player.som_s_echo_show_11
+      data:
+        type: announce
+  - if:
+    - condition: template
+      value_template: '{{ trigger.payload_json.name != ''Som'' }}'
+    then:
+    - action: mqtt.publish
+      data:
+        topic: porch/digest/visitors
+        retain: true
+        payload: '{{ states(''sensor.porch_digest_visitors'') | int(0) + 1 }}'
+  - delay:
+      hours: 0
+      minutes: 2
+      seconds: 0
+      milliseconds: 0
+  mode: single
+- id: '1795492300318'
+  alias: Porch package note
+  description: ''
+  triggers:
+  - trigger: mqtt
+    options:
+      topic: frigate/events
+  - trigger: state
+    entity_id: sensor.porch_porch_packages_classification
+    to: package_present
+    for: 00:00:20
+    from: clear
+  conditions:
+  - condition: template
+    value_template: '{{ (trigger.platform == ''mqtt'' and trigger.payload_json.type
+      == ''end'' and trigger.payload_json.after.camera == ''porch'' and trigger.payload_json.after.label
+      == ''person'' and (trigger.payload_json.after.sub_label is none or trigger.payload_json.after.sub_label
+      | length == 0) and (trigger.payload_json.after.end_time - trigger.payload_json.after.start_time)
+      >= 20 and (trigger.payload_json.after.end_time - trigger.payload_json.after.start_time)
+      <= 180 and ''approach'' in trigger.payload_json.after.entered_zones) or (trigger.platform
+      == ''state'' and trigger.to_state.state == ''package_present'') }}
+
+      '
+  actions:
+  - if:
+    - condition: time
+      after: 07:00:00
+      before: '21:00:00'
+      weekday:
+      - sun
+      - mon
+      - tue
+      - wed
+      - thu
+      - fri
+      - sat
+    then:
+    - action: notify.alexa_media
+      data:
+        message: Here goes my wallet again.
+        target: media_player.bedroom_echo_dot
+        data:
+          type: announce
+  - action: camera.snapshot
+    metadata: {}
+    target:
+      entity_id: camera.porch
+    data:
+      filename: /config/www/porch_doorstep.jpg
+  - action: notify.mobile_app_iphone
+    data:
+      title: Package may have been left
+      message: An unrecognised visitor came and left quickly — check the porch for
+        a delivery.
+      data:
+        image: /local/porch_doorstep.jpg
+  - action: mqtt.publish
+    data:
+      topic: porch/digest/deliveries
+      retain: true
+      payload: '{{ states(''sensor.porch_digest_deliveries'') | int(0) + 1 }}'
+  - delay: 00:02:00
+  mode: single
+- id: porch_receptionist_reply
+  alias: Porch receptionist reply
+  description: Speak the AI receptionist reply from CT 105 via Alexa.
+  triggers:
+  - trigger: mqtt
+    options:
+      topic: porch/receptionist/reply
+  conditions: []
+  actions:
+  - action: notify.alexa_media
+    data:
+      message: '{{ trigger.payload }}'
+      target: media_player.som_s_echo_show_11
+      data:
+        type: announce
+  mode: single
+- id: porch_receptionist_start
+  alias: Porch receptionist start
+  description: 'Stranger at the porch: speak the opener and start the AI receptionist
+    service on CT 105.'
+  triggers:
+  - trigger: mqtt
+    options:
+      topic: frigate/events
+  conditions:
+  - condition: template
+    value_template: '{{ trigger.payload_json.type == ''end'' and trigger.payload_json.after.camera
+      == ''porch'' and trigger.payload_json.after.label == ''person'' and (trigger.payload_json.after.sub_label
+      is none or trigger.payload_json.after.sub_label | length == 0) and ''approach''
+      in trigger.payload_json.after.entered_zones and states(''sensor.porch_porch_packages_classification'')
+      != ''package_present'' and (states.lock.front_door.last_changed is none or (now()
+      - states.lock.front_door.last_changed).total_seconds() > 180) and trigger.payload_json.after.entered_zones[0]
+      != ''doorstep'' }}'
+  actions:
+  - action: notify.alexa_media
+    data:
+      message: Sorry, I do not recognise you. How can I help you?
+      target: media_player.som_s_echo_show_11
+      data:
+        type: announce
+  - action: mqtt.publish
+    data:
+      topic: porch/receptionist/start
+      payload: start
+  mode: single
+- id: '1795482933697'
+  alias: Porch unknown person
+  description: ''
+  triggers:
+  - trigger: mqtt
+    options:
+      topic: frigate/events
+  conditions:
+  - condition: template
+    value_template: '{{ trigger.payload_json.type == ''end'' and trigger.payload_json.after.camera
+      == ''porch'' and trigger.payload_json.after.label == ''person'' and (trigger.payload_json.after.sub_label
+      is none or trigger.payload_json.after.sub_label | length == 0) and ''approach''
+      in trigger.payload_json.after.entered_zones and states(''sensor.porch_porch_packages_classification'')
+      != ''package_present'' and (states.lock.front_door.last_changed is none or (now()
+      - states.lock.front_door.last_changed).total_seconds() > 180) and trigger.payload_json.after.entered_zones[0]
+      != ''doorstep'' }}'
+  actions:
+  - if:
+    - condition: time
+      after: 07:00:00
+      before: '22:00:00'
+      weekday:
+      - sun
+      - mon
+      - tue
+      - wed
+      - thu
+      - fri
+      - sat
+    then:
+    - delay: 00:00:15
+    - if:
+      - condition: template
+        value_template: '{{ states.automation.porch_greeting.attributes.last_triggered
+          is none or (now() - states.automation.porch_greeting.attributes.last_triggered).total_seconds()
+          > 90 }}'
+      then:
+      - action: notify.alexa_media
+        data:
+          message: You might be looking at the wrong house. Stranger dtetected
+          target: media_player.bedroom_echo_dot
+          data:
+            type: announce
+  - action: camera.snapshot
+    metadata: {}
+    target:
+      entity_id: camera.porch
+    data:
+      filename: /config/www/porch_unknown.jpg
+  - action: notify.mobile_app_iphone
+    data:
+      title: Unknown person at the porch
+      message: Someone Frigate doesn't recognise was at the porch camera.
+      data:
+        image: /local/porch_unknown.jpg
+  - action: mqtt.publish
+    data:
+      topic: porch/digest/strangers
+      retain: true
+      payload: '{{ states(''sensor.porch_digest_strangers'') | int(0) + 1 }}'
+  - delay:
+      hours: 0
+      minutes: 1
+      seconds: 0
+      milliseconds: 0
+  mode: single
+- id: '1795481442991'
+  alias: porch unlock
+  description: ''
+  triggers:
+  - trigger: mqtt
+    options:
+      topic: frigate/tracked_object_update
+  conditions:
+  - condition: template
+    value_template: '{{ trigger.payload_json.type == ''face'' and trigger.payload_json.camera
+      == ''porch'' and trigger.payload_json.name in [''Som'', ''Mom'', ''Sami''] and
+      trigger.payload_json.score > 0.7 }}
+
+      '
+  - condition: lock.is_locked
+    target:
+      device_id: YOUR_LOCK_DEVICE_ID
+    options:
+      behavior: any
+      for: 00:00:00
+  actions:
+  - action: lock.unlock
+    metadata: {}
+    target:
+      device_id: YOUR_LOCK_DEVICE_ID
+    data: {}
+  - delay:
+      hours: 0
+      minutes: 1
+      seconds: 0
+      milliseconds: 0
+  mode: single

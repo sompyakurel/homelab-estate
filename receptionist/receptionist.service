@@ -1,0 +1,15 @@
+[Unit]
+Description=Porch AI Receptionist
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+ExecStart=/opt/whisper-venv/bin/python /opt/receptionist/receptionist.py
+Restart=always
+RestartSec=5
+StandardOutput=append:/tmp/receptionist.log
+StandardError=append:/tmp/receptionist.log
+
+[Install]
+WantedBy=multi-user.target
