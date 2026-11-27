@@ -1,0 +1,16 @@
+[Unit]
+Description=Porch face listener — show Memory Wall / Who's Here board on Echo Show 11
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Start the MQTT socat forwarder first, then the listener.
+ExecStartPre=/bin/bash -c 'pgrep -f "TCP-LISTEN:11883" >/dev/null || (export proxy_auth="${HTTPS_PROXY#*://}"; proxy_auth="${proxy_auth%%@*}"; socat TCP-LISTEN:11883,fork,bind=127.0.0.1 PROXY:hatch-egress-proxy:192.168.1.25:1883,proxyport=3130,proxyauth="$proxy_auth" & sleep 2)'
+ExecStart=/usr/bin/python3 /home/hatch/workspace/scripts/porch_face_listener.py
+Restart=on-failure
+RestartSec=30
+Environment=PYTHONPATH=/home/hatch/mqtt-libs
+
+[Install]
+WantedBy=default.target
