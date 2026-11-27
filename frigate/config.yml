@@ -1,0 +1,127 @@
+# Frigate 0.18 config - porch (Tapo C120) + garage (NVR channel 3).
+# SANITIZED FOR PUBLIC REPO: camera/NVR credentials are ${VAR}
+# placeholders - substitute your own (see ../.env.example).
+# Live file: /opt/frigate/config/config.yml on CT 105 (192.168.1.25).
+# Face recognition: model_size large, Som/Mom/Sami. Package classifier:
+# custom state model '- porch_packages' (package_present/clear).
+mqtt:
+  host: mqtt
+  topic_prefix: frigate
+
+detectors:
+  ov:
+    type: openvino
+    device: GPU
+    model_path: /openvino-model/ssdlite_mobilenet_v2.xml
+
+model:
+  width: 300
+  height: 300
+  input_tensor: nhwc
+  input_pixel_format: bgr
+  labelmap_path: /openvino-model/coco_91cl_bkgr.txt
+
+ffmpeg:
+  hwaccel_args: preset-vaapi
+
+go2rtc:
+  streams:
+    porch:
+      - rtsp://${TAPO_USER}:${TAPO_PASSWORD}@192.168.1.210/stream1
+    porch_sub:
+      - rtsp://${TAPO_USER}:${TAPO_PASSWORD}@192.168.1.210/stream2
+    garage_nvr:
+      - rtsp://${NVR_USER}:${NVR_PASSWORD}@192.168.1.110:554/user=${NVR_USER}&password=${NVR_PASSWORD}&channel=3&stream=0.sdp
+
+objects:
+  track:
+    - person
+    - car
+    - dog
+    - cat
+
+record:
+  enabled: true
+  continuous:
+    days: 0
+  motion:
+    days: 0
+  alerts:
+    retain:
+      days: 14
+  detections:
+    retain:
+      days: 14
+
+snapshots:
+  enabled: true
+  retain:
+    default: 14
+
+cameras:
+  porch:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/porch
+          roles: [detect, record]
+      output_args:
+        record: preset-record-generic-audio-aac
+    detect:
+      width: 1280
+      height: 720
+      fps: 10
+    zones:
+      approach:
+        friendly_name: Approach
+        enabled: true
+        coordinates: 0.243,0.106,0.364,0.079,0.748,0,0.678,0.588,0.319,0.62
+        inertia: 3
+        loitering_time: 0
+      doorstep:
+        friendly_name: Doorstep
+        enabled: true
+        coordinates: 0.10,0.58,0.72,0.58,0.72,0.99,0.10,0.99
+  garage:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/garage_nvr
+          roles: [detect, record]
+    detect:
+      width: 1280
+      height: 720
+      fps: 10
+    face_recognition:
+      enabled: false
+    zones:
+      driveway:
+        friendly_name: Driveway
+        enabled: true
+        coordinates: 0.38,0.26,0.80,0.24,0.80,0.75,0.38,0.75
+
+detect:
+  enabled: true
+version: 0.18-0
+semantic_search:
+  model_size: small
+face_recognition:
+  enabled: true
+  model_size: large
+lpr:
+  enabled: false
+classification:
+  bird:
+    enabled: false
+  custom:
+    '- porch_packages':
+      enabled: true
+      name: '- porch_packages'
+      threshold: 0.8
+      state_config:
+        cameras:
+          porch:
+            crop:
+              - 0.42206090435943755
+              - 0.4690948826736804
+              - 0.7206950328554923
+              - 1
+        motion: true
